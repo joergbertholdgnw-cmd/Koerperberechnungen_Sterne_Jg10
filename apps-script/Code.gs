@@ -7,6 +7,8 @@
  */
 const BLATT = "Ergebnisse";
 const KOPF = ["Zeit", "Name", "Geraet", "Aufgabe", "Titel", "Niveau", "Durchgang", "Punkte", "Max", "Prozent", "Teilaufgaben", "Wiederholen"];
+const GERAETE = "Geraete"; // Bindung Name ↔ Gerät, damit niemand unter fremdem Namen einträgt
+const GERAETE_KOPF = ["NameSchluessel", "Name", "Geraet", "Seit"];
 const MAX_FEHLVERSUCHE = 5; // danach 10 Minuten Sperre für Passworteingaben
 
 function doGet() {
@@ -17,8 +19,9 @@ function doPost(e) {
   let antwort;
   try {
     const d = JSON.parse(e.postData.contents);
-    if (d.aktion === "speichern") antwort = speichern(d.ergebnis);
-    else if (d.aktion === "fortschritt") antwort = fortschritt(d.name);
+    if (d.aktion === "speichern") antwort = speichern(d.ergebnis, d.geraet);
+    else if (d.aktion === "anmelden") antwort = anmelden(d.name, d.geraet);
+    else if (d.aktion === "freigeben") antwort = mitPasswort(d.passwort, () => freigeben(d.name));
     else if (d.aktion === "liste") antwort = mitPasswort(d.passwort, liste);
     else if (d.aktion === "zuruecksetzen") antwort = mitPasswort(d.passwort, () => zuruecksetzen(d.archivieren !== false));
     else antwort = { ok: false, fehler: "Unbekannte Aktion" };
@@ -27,6 +30,37 @@ function doPost(e) {
   }
   return ContentService.createTextOutput(JSON.stringify(antwort)).setMimeType(ContentService.MimeType.JSON);
 }
+
+function geraeteBlatt() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let b = ss.getSheetByName(GERAETE);
+  if (!b) {
+    b = ss.insertSheet(GERAETE);
+    b.appendRow(GERAETE_KOPF);
+    b.setFrozenRows(1);
+  }
+  return b;
+}
+
+const GEBUNDEN = "Dieser Name ist schon auf einem anderen Gerät angemeldet. Bitte wende dich an deine Lehrkraft.";
+
+// "frei" wird beim ersten Mal an dieses Gerät gebunden; liefert true, wenn Name und Gerät zusammenpassen
+function geraetPasst(name, geraet) {
+  const k = namensSchluessel(name);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const b = geraeteBlatt();
+    const werte = b.getDataRange().getValues().slice(1);
+    const zeile = werte.find(function (z) { return String(z[0]) === k; });
+    if (zeile) return String(zeile[2]) === geraet;
+    b.appendRow([k, sauber(name, 40), geraet, new Date()]);
+    return true;
+  } finally {
+    lock.releaseLock();
+  }
+}
+const geraetGueltig = (g) => typeof g === "string" && /^[a-z0-9-]{20,64}$/i.test(g);
 
 function blatt() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -46,8 +80,10 @@ function sauber(wert, laenge) {
 }
 const ganz = (x, min, max) => Math.min(max, Math.max(min, Math.round(Number(x) || 0)));
 
-function speichern(e) {
+function speichern(e, geraet) {
   if (!e || !e.name) return { ok: false, fehler: "Kein Name" };
+  if (!geraetGueltig(geraet)) return { ok: false, fehler: "Keine Gerätekennung" };
+  if (!geraetPasst(e.name, geraet)) return { ok: false, gebunden: true, fehler: GEBUNDEN };
   const teile = (Array.isArray(e.teile) ? e.teile : []).slice(0, 10).map(function (t) {
     return { id: sauber(t.id, 2), satz: sauber(t.satz, 20), richtig: !!t.richtig, versuche: ganz(t.versuche, 0, 9), hilfen: ganz(t.hilfen, 0, 9),
       eingaben: (Array.isArray(t.eingaben) ? t.eingaben : []).slice(0, 3).map(function (x) { return String(x).slice(0, 30); }) };
@@ -92,14 +128,33 @@ function zeilen() {
 }
 
 function liste() {
-  return { ok: true, ergebnisse: zeilen() };
+  const bindungen = geraeteBlatt().getDataRange().getValues().slice(1).map(function (z) {
+    return { schluessel: String(z[0]), seit: z[3] instanceof Date ? z[3].toISOString() : String(z[3]) };
+  });
+  return { ok: true, ergebnisse: zeilen(), bindungen: bindungen };
 }
 
-// Ohne Passwort: nur die eigenen Ergebnisse, damit Schülerinnen und Schüler auf jedem Gerät weiterarbeiten können
+function freigeben(name) {
+  const k = namensSchluessel(name);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    const b = geraeteBlatt();
+    const werte = b.getDataRange().getValues();
+    for (let i = werte.length - 1; i >= 1; i--) if (String(werte[i][0]) === k) b.deleteRow(i + 1);
+    return { ok: true };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Ohne Passwort, aber nur vom gebundenen Gerät: die eigenen Ergebnisse, damit man nach dem Abmelden weiterarbeiten kann
 const namensSchluessel = (n) => String(n || "").replace(/^'/, "").trim().replace(/\s+/g, " ").toLowerCase();
-function fortschritt(name) {
+function anmelden(name, geraet) {
   const gesucht = namensSchluessel(name);
   if (!gesucht) return { ok: false, fehler: "Kein Name" };
+  if (!geraetGueltig(geraet)) return { ok: false, fehler: "Keine Gerätekennung" };
+  if (!geraetPasst(name, geraet)) return { ok: false, gebunden: true, fehler: GEBUNDEN };
   const eigene = zeilen().filter(function (e) { return namensSchluessel(e.name) === gesucht; }).map(function (e) {
     return { aufgabe: e.aufgabe, durchgang: e.durchgang, schuelerId: e.schuelerId, teile: e.teile };
   });
@@ -117,6 +172,8 @@ function zuruecksetzen(archivieren) {
       b.copyTo(SpreadsheetApp.getActiveSpreadsheet()).setName(archiv);
     }
     if (b.getLastRow() > 1) b.deleteRows(2, b.getLastRow() - 1);
+    const g = geraeteBlatt();
+    if (g.getLastRow() > 1) g.deleteRows(2, g.getLastRow() - 1);
     return { ok: true, archiv: archiv };
   } finally {
     lock.releaseLock();

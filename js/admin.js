@@ -7,6 +7,7 @@
   const schluessel = (name) => String(name).trim().toLowerCase().replace(/\s+/g, " ");
   let passwort = "";
   let daten = [];
+  let bindungen = {}; // Namensschlüssel → seit wann an ein Gerät gebunden
 
   function zeigeAnmeldung(meldung) {
     wurzel.innerHTML = `
@@ -33,6 +34,7 @@
       const a = await Speicher.holen(passwort);
       if (!a.ok) { passwort = ""; return zeigeAnmeldung(a.fehler || "Anmeldung fehlgeschlagen."); }
       daten = a.ergebnisse || [];
+      bindungen = Object.fromEntries((a.bindungen || []).map((b) => [b.schluessel, b.seit]));
       zeigeUebersicht();
     } catch (e) {
       zeigeAnmeldung("Keine Verbindung zum Google-Skript (" + e.message + "). Häufigste Ursache: Bei der Bereitstellung ist nicht „Zugriff: Jeder“ eingestellt.");
@@ -85,10 +87,10 @@
 
     if (!personen.length) html += '<section class="karte"><p>Noch keine Ergebnisse eingegangen.</p></section>';
     else {
-      html += `<section class="karte"><h2>Übersicht (bestes Ergebnis je Aufgabe in %)</h2><p class="klein">Klick auf einen Namen zeigt alle Einzelheiten. ⚠ = Name wurde auf mehreren Geräten benutzt (gleiche Person auf zwei Geräten oder zwei Personen mit gleichem Namen).</p>
+      html += `<section class="karte"><h2>Übersicht (bestes Ergebnis je Aufgabe in %)</h2><p class="klein">Klick auf einen Namen zeigt alle Einzelheiten und erlaubt, die Gerätebindung zu lösen. 🔒 = Name ist an ein Gerät gebunden. ⚠ = Ergebnisse stammen von mehreren Geräten.</p>
         <div class="tabelle-huelle"><table><thead><tr><th>Name</th>${AUFGABEN.map((a) => `<th title="${esc(a.titel)}">${a.id}<br><span class="sterne klein-sterne">${"★".repeat(a.niveau)}</span></th>`).join("")}<th>Erledigt</th><th>Wiederholen</th></tr></thead><tbody>`;
       personen.forEach((p, i) => {
-        html += `<tr class="klickbar" data-person="${i}"><td>${esc(p.name)} ${p.geraete.size > 1 ? `<span title="${p.geraete.size} Geräte">⚠</span>` : ""}</td>`;
+        html += `<tr class="klickbar" data-person="${i}"><td>${esc(p.name)} ${bindungen[schluessel(p.name)] ? '<span title="an ein Gerät gebunden">🔒</span>' : ""} ${p.geraete.size > 1 ? `<span title="${p.geraete.size} Geräte">⚠</span>` : ""}</td>`;
         for (const a of AUFGABEN) {
           const e = p.aufgaben[a.id];
           html += e ? `<td class="zelle ${klasse(e.prozent)}" title="${e.versuche} Durchgang/Durchgänge">${e.prozent}</td>` : '<td class="zelle"></td>';
@@ -125,6 +127,11 @@
     let html = `<header class="kopf"><button class="knopf leise" id="zurueck">← Übersicht</button></header>
       <section class="karte"><h1>${esc(p.name)}</h1>
       <p>${Object.keys(p.aufgaben).length} von 18 Aufgaben bearbeitet · ${p.geraete.size} Gerät(e)</p>
+      ${bindungen[schluessel(p.name)]
+        ? `<p>🔒 An ein Gerät gebunden seit ${new Date(bindungen[schluessel(p.name)]).toLocaleString("de-DE")}.</p>
+           <p class="klein">Nur dieses Gerät kann unter dem Namen Ergebnisse eintragen. Muss die Person das Gerät wechseln (neues Gerät, gelöschte Browserdaten, privates Fenster), hier die Bindung lösen. Die nächste Anmeldung verbindet den Namen mit dem neuen Gerät; alle Ergebnisse bleiben erhalten.</p>
+           <div class="knopfreihe"><button class="knopf leise" id="freigeben">Gerätebindung lösen</button></div>`
+        : "<p>Nicht an ein Gerät gebunden. Die nächste Anmeldung mit diesem Namen verbindet ihn mit dem Gerät.</p>"}
       ${p.wiederholen.size ? `<p><b>Empfohlene Wiederholung:</b> ${[...p.wiederholen].map((s) => esc(WIEDERHOLUNG[s]?.name || s)).join(", ")}</p>` : ""}</section>`;
     for (const e of eintraege) {
       const prozent = Math.round((100 * e.punkte) / e.max);
@@ -136,6 +143,19 @@
     }
     wurzel.innerHTML = html;
     document.getElementById("zurueck").addEventListener("click", zeigeUebersicht);
+    document.getElementById("freigeben")?.addEventListener("click", async (ev) => {
+      if (!confirm(`Gerätebindung für ${p.name} lösen? Danach kann sich ${p.name} auf einem anderen Gerät anmelden.`)) return;
+      ev.target.disabled = true;
+      try {
+        const a = await Speicher.freigeben(passwort, p.name);
+        if (!a.ok) throw new Error(a.fehler || "unbekannt");
+        delete bindungen[schluessel(p.name)];
+        zeigePerson(p);
+      } catch (e) {
+        ev.target.disabled = false;
+        alert("Lösen hat nicht geklappt: " + e.message);
+      }
+    });
     window.scrollTo(0, 0);
   }
 

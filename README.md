@@ -6,7 +6,8 @@ Lernapp mit 18 Anwendungsaufgaben zu Kreis, Zylinder, Kegel, Pyramide und Kugel.
 - Jede Aufgabe hat 3 bis 6 Teilaufgaben mit je zwei Hilfen ohne Lösung.
 - Die App prüft jede Eingabe sofort (±1 % Toleranz, zwei Versuche) und schickt das Ergebnis nach jeder Aufgabe an die Lehrkraft.
 - Wer zweimal bei demselben Satz scheitert, bekommt eine Wiederholungskarte.
-- Mit „Abmelden“ wird das Gerät für die nächste Person geleert. Wer sich später mit demselben Namen anmeldet, bekommt seinen bisherigen Stand aus der Tabelle zurück, auch auf einem anderen Gerät.
+- Beim ersten Anmelden wird der Name mit dem Gerät (genauer: dem Browser) verbunden. Nur dieses Gerät kann danach unter dem Namen anmelden und Ergebnisse eintragen. Muss jemand das Gerät wechseln, löst die Lehrkraft die Bindung im Adminbereich (Name anklicken → „Gerätebindung lösen“).
+- Mit „Abmelden“ wird das Gerät für die nächste Person geleert. Wer sich wieder mit demselben Namen anmeldet, sieht seine schon gelösten Aufgaben.
 - Der Bereich für Lehrkräfte (`admin.html`) zeigt alle Ergebnisse, bietet einen CSV-Export und einen Neustart für eine neue Klasse.
 
 ## Einrichtung (einmalig, etwa 10 Minuten)
@@ -38,7 +39,7 @@ Im Repository **Settings → Pages**: Quelle „Deploy from a branch“, den Bra
 
 ## Datenschutz
 
-- Den eigenen Stand kann jede Person ohne Passwort über ihren Namen abrufen. Wer einen fremden Namen eintippt, sieht also dessen erledigte Aufgaben und Eingaben, aber nie die Liste der Klasse.
+- Den eigenen Stand kann nur das Gerät abrufen, an das der Name gebunden ist. Die Bindungen stehen im Blatt „Geraete“ der Tabelle und werden beim Neustart für eine neue Klasse mit gelöscht.
 
 - Gespeichert werden Vorname, erster Buchstabe des Nachnamens, eine zufällige Geräte-Kennung und die Ergebnisse. Keine E-Mail, keine Klasse.
 - Die Daten liegen in der Google-Tabelle der Lehrkraft. Bitte vor dem Einsatz klären, ob die Schule das erlaubt.

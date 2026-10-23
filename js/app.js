@@ -78,7 +78,8 @@
         <form id="nameForm" class="formular" autocomplete="off">
           <label>Vorname <input id="vorname" required maxlength="30" placeholder="z. B. Lena"></label>
           <label>Erster Buchstabe deines Nachnamens <input id="kuerzel" required maxlength="2" placeholder="z. B. M" class="kurz"></label>
-          <p class="klein">Deine Ergebnisse werden unter diesem Namen für deine Lehrkraft gespeichert. Bitte trage dich jedes Mal genau gleich ein.</p>
+          <p class="klein">Deine Ergebnisse werden unter diesem Namen für deine Lehrkraft gespeichert. Bitte trage dich jedes Mal genau gleich ein. Dein Name wird beim ersten Mal mit diesem Gerät verbunden; arbeite deshalb immer am selben Gerät und im selben Browser.</p>
+          <p class="fehler" id="anmeldeFehler" role="alert"></p>
           <button class="knopf haupt" type="submit">Los geht's</button>
         </form>
       </section>`;
@@ -89,20 +90,34 @@
       if (!v || !k) return;
       const name = `${v.charAt(0).toUpperCase() + v.slice(1)} ${k}.`;
       if (stand && stand.name === name) { zeigeUebersicht(); return; }
-      stand = neuerStand(name);
-      speichern();
-      e.target.querySelector("button[type=submit]").disabled = true;
-      e.target.querySelector("button[type=submit]").textContent = "Dein Stand wird geladen …";
-      standLaden().then(zeigeUebersicht);
+      const knopf = e.target.querySelector("button[type=submit]");
+      knopf.disabled = true;
+      knopf.textContent = "Anmelden …";
+      anmelden(name).then((ok) => {
+        if (ok) return zeigeUebersicht();
+        knopf.disabled = false;
+        knopf.textContent = "Los geht's";
+      });
     });
   }
 
-  // Bisherige Ergebnisse dieses Namens holen, damit man auf jedem Gerät weiterarbeiten kann
-  async function standLaden() {
+  // Name prüfen bzw. an dieses Gerät binden und bisherige Ergebnisse übernehmen
+  async function anmelden(name) {
+    const fehlerFeld = document.getElementById("anmeldeFehler");
     let liste;
-    try { liste = (await Speicher.fortschritt(stand.name)).ergebnisse || []; }
-    catch { toast("Dein bisheriger Stand konnte gerade nicht geladen werden. Du kannst trotzdem rechnen.", 4000); return; }
-    if (!liste.length) return;
+    try {
+      const a = await Speicher.anmelden(name);
+      if (a.gebunden) { fehlerFeld.textContent = a.fehler; return false; }
+      liste = a.ergebnisse || [];
+    } catch {
+      // Ohne Verbindung trotzdem rechnen lassen; beim Senden prüft das Skript Name und Gerät
+      stand = neuerStand(name);
+      speichern();
+      toast("Keine Verbindung: Dein bisheriger Stand konnte nicht geladen werden. Du kannst trotzdem rechnen.", 4000);
+      return true;
+    }
+    stand = neuerStand(name);
+    if (!liste.length) { speichern(); return true; }
     const neueste = {};
     for (const e of liste) {
       const a = AUFGABEN.find((x) => x.id === Number(e.aufgabe));
@@ -121,7 +136,8 @@
     }
     meilensteinePruefen(true);
     speichern();
-    toast(`Willkommen zurück! ${Object.keys(neueste).length} Aufgabe(n) sind schon erledigt.`, 3500);
+    toast(`Willkommen zurück! ${Object.keys(neueste).length} Aufgabe(n) hast du schon gelöst.`, 3500);
+    return true;
   }
 
   function zeigeUebersicht() {
@@ -143,6 +159,7 @@
         <div>
           <h2>${fertig === 0 ? "Willkommen!" : fertig === 18 ? "Alle Aufgaben geschafft!" : "Dein Fortschritt"}</h2>
           <p>${motivation(fertig)}</p>
+          ${fertig ? `<p class="klein"><b>Schon gelöst:</b> Aufgabe ${erledigt().map((a) => a.id).sort((x, y) => x - y).join(", ")}</p>` : ""}
           ${tipp ? `<button class="knopf haupt" data-aufgabe="${tipp.id}">Vorschlag: ${esc(tipp.titel)} ${"★".repeat(tipp.niveau)}</button>` : ""}
         </div>
       </section>`;
@@ -157,7 +174,7 @@
       for (const a of AUFGABEN.filter((x) => x.niveau === n)) {
         const st = stand.aufgaben[a.id];
         const ausw = st ? auswertung(a) : null;
-        const status = st?.abgeschlossen ? `<span class="status ${ausw.prozent >= 50 ? "fertig" : "begonnen"}">${ausw.prozent >= 50 ? "✓" : "erledigt ·"} ${ausw.prozent} %</span>` : st && Object.keys(st.teile).length ? '<span class="status begonnen">begonnen</span>' : '<span class="status">neu</span>';
+        const status = st?.abgeschlossen ? `<span class="status ${ausw.prozent >= 50 ? "fertig" : "begonnen"}">✓ gelöst · ${ausw.prozent} %</span>` : st && Object.keys(st.teile).length ? '<span class="status begonnen">begonnen</span>' : '<span class="status">neu</span>';
         html += `<button class="aufgabe-kachel ${st?.abgeschlossen ? "ist-fertig" : ""}" data-aufgabe="${a.id}">
           <span class="nr">${a.id}</span><span class="titel">${esc(a.titel)}</span>
           <span class="tags">${a.koerper.join(" · ")}</span>${status}</button>`;
@@ -336,6 +353,7 @@
     const r = await Speicher.senden(ergebnis);
     const el = document.getElementById("sendestatus");
     if (r.ok) { st.gesendet = true; speichern(); if (el) el.textContent = r.demo ? "✓ Ergebnis gespeichert (Demo-Modus, nur auf diesem Gerät)." : "✓ Ergebnis wurde eingetragen."; }
+    else if (r.gebunden) { if (el) el.textContent = "⚠ " + r.fehler + " Das Ergebnis wurde nicht eingetragen."; }
     else if (el) el.textContent = "Keine Verbindung. Das Ergebnis ist gemerkt und wird automatisch nachgeschickt.";
   }
 
