@@ -103,7 +103,7 @@
 
     let html = `
       <header class="kopf">
-        <div><span class="klein">Angemeldet als</span><br><b>${esc(stand.name)}</b> <button class="link" id="abmelden">nicht du?</button></div>
+        <div><span class="klein">Angemeldet als</span><br><b>${esc(stand.name)}</b> <button class="link" id="abmelden">Abmelden</button></div>
         <button class="knopf leise" id="formeln">📐 Formeln</button>
       </header>
       ${Speicher.istDemo() ? '<p class="hinweis-demo">Demo-Modus: Die Ergebnisse werden nur auf diesem Gerät gespeichert.</p>' : ""}
@@ -148,7 +148,7 @@
     app.querySelectorAll("[data-aufgabe]").forEach((b) => b.addEventListener("click", () => zeigeAufgabe(+b.dataset.aufgabe)));
     app.querySelectorAll("[data-karte]").forEach((b) => b.addEventListener("click", () => zeigeKarte(b.dataset.karte)));
     document.getElementById("formeln").addEventListener("click", zeigeFormeln);
-    document.getElementById("abmelden").addEventListener("click", () => zeigeStart());
+    document.getElementById("abmelden").addEventListener("click", abmelden);
     window.scrollTo(0, 0);
   }
 
@@ -339,6 +339,33 @@
       ["kreis", "zylinder", "kegel", "pyramide", "kugel"].map((k) => `<h3>${WIEDERHOLUNG[k].name}</h3><p class="merke">${WIEDERHOLUNG[k].merke.split(" · ").join("<br>")}</p>`).join("") +
       `<h3>Sätze</h3><div class="chips">${Object.entries(WIEDERHOLUNG).filter(([, w]) => w.istSatz).map(([s, w]) => `<button class="chip" data-karte="${s}">${w.name}</button>`).join("")}</div>`);
     document.querySelectorAll(".overlay [data-karte]").forEach((b) => b.addEventListener("click", () => zeigeKarte(b.dataset.karte)));
+  }
+
+  // Leert das Gerät für die nächste Person; gesendete Ergebnisse bleiben bei der Lehrkraft.
+  function abmelden() {
+    document.querySelector(".overlay")?.remove();
+    const wartend = Speicher.offen();
+    const o = document.createElement("div");
+    o.className = "overlay";
+    o.innerHTML = `<div class="overlay-box" role="dialog" aria-modal="true">
+      <h2>Abmelden?</h2>
+      <p>Deine abgeschlossenen Aufgaben sind bei deiner Lehrkraft gespeichert. Auf diesem Gerät wird dein Fortschritt gelöscht, damit die nächste Person neu beginnen kann.</p>
+      ${wartend ? `<p class="hinweis-demo">${wartend} Ergebnis(se) warten noch auf Internet. Sie bleiben auf diesem Gerät und werden automatisch nachgeschickt.</p>` : ""}
+      <button class="knopf haupt" id="abmeldenJa">Ja, abmelden</button>
+      <button class="knopf leise schliessen">Abbrechen</button></div>`;
+    document.body.appendChild(o);
+    const zu = () => o.remove();
+    o.querySelector(".schliessen").addEventListener("click", zu);
+    o.addEventListener("click", (e) => { if (e.target === o) zu(); });
+    o.querySelector("#abmeldenJa").addEventListener("click", () => {
+      stand = null;
+      Speicher.schreib(STAND, null);
+      zu();
+      zeigeStart();
+      window.scrollTo(0, 0);
+      toast("Abgemeldet. Das Gerät ist frei für die nächste Person.", 2600);
+    });
+    o.querySelector("#abmeldenJa").focus();
   }
 
   function overlay(inhalt) {
