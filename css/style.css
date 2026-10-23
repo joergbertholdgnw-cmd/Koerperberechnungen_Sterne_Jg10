@@ -94,6 +94,12 @@ input.kurz { max-width: 90px; }
 .skizze-svg text { fill: currentColor; font-size: 14px; font-family: inherit; }
 .skizze-svg text.klein { font-size: 10px; }
 
+.teil-skizze { float: right; width: 290px; margin: 0 0 8px 14px; background: var(--bg); border-radius: 10px; padding: 6px; }
+.teil-skizze figcaption { font-size: .72rem; color: var(--leise); text-align: center; }
+.teil::after { content: ""; display: block; clear: both; }
+@media (max-width: 560px) { .teil-skizze { float: none; width: 100%; max-width: 300px; margin: 6px auto; } }
+.skizze-svg text.name { font-size: 12px; font-weight: 600; }
+.skizze-svg text.winkel { font-size: 13px; fill: var(--akzent); }
 .teile { list-style: none; padding: 0; margin: 0; }
 .teil { border-top: 1px solid var(--rand); padding: 14px 0; }
 .teil p { margin: .3em 0; }

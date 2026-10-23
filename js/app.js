@@ -199,6 +199,7 @@
     const hilfen = t.hilfen.slice(0, ts.hilfen).map((h, i) => `<p class="hilfe"><b>Hilfe ${i + 1}:</b> ${h}</p>`).join("");
     return `
       <div class="teil-kopf"><b>${t.id})</b> <span class="sterne klein-sterne">${sterne(t.niveau)}</span></div>
+      ${TEILSKIZZEN[a.id + t.id] ? `<figure class="teil-skizze">${TEILSKIZZEN[a.id + t.id]}<figcaption>Schnittskizze</figcaption></figure>` : ""}
       <p>${t.text}</p>
       ${hilfen}
       ${ts.fertig ? "" : `

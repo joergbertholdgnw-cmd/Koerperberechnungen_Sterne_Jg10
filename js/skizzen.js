@@ -116,5 +116,79 @@
       T(110, 200, "a = " + grund) + T(166, 130, "h = " + hoehe) + T(214, 84, "h") + `<text x="223" y="88" class="klein">s</text>`);
   }
 
+
+  // ───────────── Schnittskizzen zu einzelnen Teilaufgaben (★★ und ★★★) ─────────────
+  // Sie zeigen das Dreieck, in dem gerechnet wird, mit den bekannten Größen. Das Ergebnis steht nie darin.
+  function dreieck(o) {
+    const P = o.punkte;
+    const sx = (P[0][0] + P[1][0] + P[2][0]) / 3, sy = (P[0][1] + P[1][1] + P[2][1]) / 3;
+    const weg = (x, y, d) => { const dx = x - sx, dy = y - sy, l = Math.hypot(dx, dy) || 1; return [x + (dx / l) * d, y + (dy / l) * d]; };
+    let g = `<path d="M${P[0]}L${P[1]}L${P[2]}Z" class="flaeche-hell"/>`;
+    (o.seiten || []).forEach((text, i) => {
+      const a = P[i], b = P[(i + 1) % 3];
+      if ((o.hervor || []).includes(i)) g += L(a[0], a[1], b[0], b[1], "akzent");
+      if (!text) return;
+      // Beschriftung senkrecht zur Seite nach außen schieben
+      const mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, l = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      let nx = -(b[1] - a[1]) / l, ny = (b[0] - a[0]) / l;
+      if (nx * (mx - sx) + ny * (my - sy) < 0) { nx = -nx; ny = -ny; }
+      const x = mx + nx * (8 + Math.abs(nx) * text.length * 3.2), y = my + ny * 14;
+      g += T(x.toFixed(0), (y + 5).toFixed(0), text, 'text-anchor="middle"');
+    });
+    (o.namen || []).forEach((n, i) => { if (!n) return; const [x, y] = weg(P[i][0], P[i][1], 14); g += T(x.toFixed(0), (y + 5).toFixed(0), n, 'text-anchor="middle" class="name"'); });
+    (o.winkel || []).forEach((w, i) => {
+      if (!w) return;
+      const [x, y] = weg(P[i][0], P[i][1], -30);
+      g += T(x.toFixed(0), (y + 5).toFixed(0), w, 'text-anchor="middle" class="winkel"');
+    });
+    if (o.rechts !== undefined) {
+      const v = P[o.rechts], a = P[(o.rechts + 1) % 3], b = P[(o.rechts + 2) % 3];
+      const e = (q) => { const l = Math.hypot(q[0] - v[0], q[1] - v[1]); return [(q[0] - v[0]) / l * 12, (q[1] - v[1]) / l * 12]; };
+      const [ax, ay] = e(a), [bx, by] = e(b);
+      g += `<path d="M${v[0] + ax} ${v[1] + ay} L${v[0] + ax + bx} ${v[1] + ay + by} L${v[0] + bx} ${v[1] + by}" class="duenn"/>`;
+    }
+    return svg(g + (o.extra || ""), o.hoehe || 220);
+  }
+
+  const TEILSKIZZEN = {
+    "7a": dreieck({ punkte: [[70, 30], [70, 180], [260, 180]], namen: ["Spitze", "", "Rand"], seiten: ["h = ?", "r = 10 m", "s = 12 m"], hervor: [0], rechts: 1 }),
+    "8d": dreieck({ punkte: [[160, 195], [160, 45], [266, 89]], namen: ["M", "Gondel 1", "Gondel 4"], seiten: ["30 m", "?", "30 m"], winkel: ["aus c"], hervor: [1] }),
+    "9a": dreieck({ punkte: [[110, 30], [110, 185], [270, 185]], namen: ["Spitze", "Fußpunkt", "Kantenmitte"], seiten: ["h = 21,6 m", "17,7 m", "hₛ = ?"], hervor: [2], rechts: 1 }),
+    "9d": dreieck({ punkte: [[110, 30], [110, 185], [240, 185]], namen: ["Spitze", "Kantenmitte", "Ecke"], seiten: ["hₛ (aus a)", "17,7 m", "s = ?"], hervor: [2], rechts: 1 }),
+    "9e": dreieck({ punkte: [[160, 35], [50, 190], [270, 190]], namen: ["Spitze", "", ""], seiten: ["s", "35,4 m", "s"], winkel: ["γ = ?"] }),
+    "10a": dreieck({ punkte: [[160, 205], [160, 85], [290, 85]], namen: ["M", "", "Ende"], seiten: ["r − 6", "12 cm", "r"], hervor: [2], rechts: 1, hoehe: 225,
+      extra: `<path d="M30 85 A160 160 0 0 1 290 85" class="dick"/>` + L(160, 85, 160, 45, "gestrichelt") + T(166, 66, "6 cm") }),
+    "11a": kugelschnitt(10, "10 cm", "20 cm"),
+    "11d": kugelschnitt(26, "26 cm", "4 cm"),
+    "12a": dreieck({ punkte: [[60, 190], [260, 190], [160, 17]], seiten: ["", "6 cm", "6 cm"], hoehe: 215,
+      extra: L(160, 17, 160, 190, "akzent") + T(166, 120, "h = ?") + T(105, 207, "3 cm") + T(200, 207, "3 cm") }),
+    "12c": dreieck({ punkte: [[50, 190], [170, 190], [170, 33]], namen: ["Ecke", "S", "Spitze"], seiten: ["⅔ · h (aus a)", "h = ?", "Kante 6 cm"], hervor: [1], rechts: 1 }),
+    "13b": dreieck({ punkte: [[20, 190], [140, 190], [295, 30]], namen: ["A", "B", "S"], seiten: ["40 m", "? ", ""], winkel: ["32°", "", "aus a"], hervor: [1] }),
+    "13c": dreieck({ punkte: [[50, 190], [250, 190], [250, 30]], namen: ["B", "F", "S"], seiten: ["", "h = ?", "BS (aus b)"], winkel: ["48°"], hervor: [1], rechts: 1 }),
+    "14b": dreieck({ punkte: [[20, 190], [150, 190], [295, 55]], namen: ["L", "R", "T"], seiten: ["15 m", "s = ?", ""], winkel: ["20°", "", "aus a"], hervor: [1] }),
+    "14c": dreieck({ punkte: [[40, 190], [260, 190], [260, 45]], namen: ["R", "Mitte", "T"], seiten: ["r", "h", "s (aus b)"], winkel: ["35°"], rechts: 1 }),
+    "15a": dreieck({ punkte: [[110, 205], [110, 30], [190, 144]], namen: ["Erdmittelpunkt", "Auge", "Horizont"], seiten: ["R + Höhe", "d = ?", "R"], hervor: [1], rechts: 2, hoehe: 225 }),
+    "15d": dreieck({ punkte: [[110, 205], [110, 30], [190, 144]], namen: ["Erdmittelpunkt", "ISS", "Horizont"], seiten: ["6771 km", "d (aus b)", "6371 km"], winkel: ["α = ?"], rechts: 2, hoehe: 225 }),
+    "16b": dreieck({ punkte: [[160, 20], [245, 80], [160, 200]], namen: ["Spitze oben", "Rand", "Spitze unten"], seiten: ["s₁ = 2,5 cm", "s₂ = 6 cm", ""], rechts: 1,
+      extra: L(160, 80, 245, 80, "gestrichelt akzent") + T(196, 96, "r") + T(146, 55, "p") + T(146, 145, "q") + T(120, 110, "c") + L(160, 20, 160, 200, "gestrichelt") }),
+    "17c": svg(`<path d="M89 30 L160 200 L231 30" class="linie"/>` + L(89, 30, 231, 30) +
+      `<circle cx="160" cy="126" r="28" class="flaeche-wasser"/>` + L(160, 30, 160, 200, "gestrichelt") +
+      `<path d="M160 200 L160 126 L186 137 Z" class="flaeche-hell"/>` + L(160, 126, 186, 137, "akzent") + L(160, 126, 160, 200, "akzent") +
+      `<path d="M181 135 L184 128 L191 131" class="duenn"/>` +
+      T(118, 24, "5 cm") + T(206, 110, "s (aus a)") + T(132, 172, "?") + T(196, 150, "2 cm") + T(146, 122, "M") + T(166, 214, "Spitze"), 225),
+    "18a": dreieck({ punkte: [[40, 180], [280, 180], [190, 48]], namen: ["A", "B", "C"], seiten: ["c = 6 m", "a = 4 m", "b = 5 m"], winkel: ["α", "", "γ"] })
+  };
+
+  function kugelschnitt(hoehe, unten, oben) {
+    const y = 205 - (hoehe / 30) * 180, rx = Math.sqrt(90 * 90 - (y - 115) ** 2);
+    const px = 160 - rx;
+    return svg(`<circle cx="160" cy="115" r="90" class="linie"/>` +
+      `<path d="M160 25 L${px.toFixed(1)} ${y.toFixed(1)} L160 205 Z" class="flaeche-hell"/>` +
+      L(160, 25, 160, 205, "gestrichelt") + L(px, y, 160, y, "akzent") +
+      T(px - 16, y + 5, "P") + T(((px + 160) / 2 - 16).toFixed(0), (y + 20).toFixed(0), "ρ = ?") +
+      T(168, (y + 205) / 2 + 5, unten) + T(168, (y + 25) / 2 + 5, oben) + T(212, 24, "d = 30 cm"), 225);
+  }
+
+  window.TEILSKIZZEN = TEILSKIZZEN;
   window.SKIZZEN = SKIZZEN;
 })();
