@@ -55,10 +55,20 @@
     return anfrage({ aktion: "liste", passwort });
   }
 
+  // Eigene Ergebnisse (auch noch nicht gesendete) für die Fortsetzung auf einem anderen Gerät
+  async function fortschritt(name) {
+    const gleich = (e) => e.name.trim().toLowerCase() === name.trim().toLowerCase();
+    const wartend = lies(WARTESCHLANGE, []).filter(gleich);
+    if (!url()) return { ok: true, demo: true, ergebnisse: lies(DEMO, []).filter(gleich) };
+    const a = await anfrage({ aktion: "fortschritt", name });
+    if (!a.ok) throw new Error(a.fehler || "unbekannt");
+    return { ok: true, ergebnisse: a.ergebnisse.concat(wartend) };
+  }
+
   async function zuruecksetzen(passwort, archivieren) {
     if (!url()) { schreib(DEMO, []); return { ok: true, demo: true }; }
     return anfrage({ aktion: "zuruecksetzen", passwort, archivieren });
   }
 
-  window.Speicher = { senden, nachsenden, offen, holen, zuruecksetzen, lies, schreib, istDemo: () => !url() };
+  window.Speicher = { senden, nachsenden, offen, holen, fortschritt, zuruecksetzen, lies, schreib, istDemo: () => !url() };
 })();

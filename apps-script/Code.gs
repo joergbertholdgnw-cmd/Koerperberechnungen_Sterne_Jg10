@@ -18,6 +18,7 @@ function doPost(e) {
   try {
     const d = JSON.parse(e.postData.contents);
     if (d.aktion === "speichern") antwort = speichern(d.ergebnis);
+    else if (d.aktion === "fortschritt") antwort = fortschritt(d.name);
     else if (d.aktion === "liste") antwort = mitPasswort(d.passwort, liste);
     else if (d.aktion === "zuruecksetzen") antwort = mitPasswort(d.passwort, () => zuruecksetzen(d.archivieren !== false));
     else antwort = { ok: false, fehler: "Unbekannte Aktion" };
@@ -79,16 +80,30 @@ function mitPasswort(passwort, aktion) {
   return aktion();
 }
 
-function liste() {
+function zeilen() {
   const werte = blatt().getDataRange().getValues().slice(1);
-  const ergebnisse = werte.filter(function (z) { return z[1] !== ""; }).map(function (z) {
+  return werte.filter(function (z) { return z[1] !== ""; }).map(function (z) {
     let teile = [];
     try { teile = JSON.parse(z[10]); } catch (err) { /* Zeile von Hand verändert */ }
     return { zeit: z[0] instanceof Date ? z[0].toISOString() : String(z[0]), name: String(z[1]).replace(/^'/, ""), schuelerId: String(z[2]).replace(/^'/, ""),
       aufgabe: Number(z[3]), titel: String(z[4]), niveau: Number(z[5]), durchgang: Number(z[6]), punkte: Number(z[7]), max: Number(z[8]),
       teile: teile, wiederholen: String(z[11] || "").split(" ").filter(String) };
   });
-  return { ok: true, ergebnisse: ergebnisse };
+}
+
+function liste() {
+  return { ok: true, ergebnisse: zeilen() };
+}
+
+// Ohne Passwort: nur die eigenen Ergebnisse, damit Schülerinnen und Schüler auf jedem Gerät weiterarbeiten können
+const namensSchluessel = (n) => String(n || "").replace(/^'/, "").trim().replace(/\s+/g, " ").toLowerCase();
+function fortschritt(name) {
+  const gesucht = namensSchluessel(name);
+  if (!gesucht) return { ok: false, fehler: "Kein Name" };
+  const eigene = zeilen().filter(function (e) { return namensSchluessel(e.name) === gesucht; }).map(function (e) {
+    return { aufgabe: e.aufgabe, durchgang: e.durchgang, schuelerId: e.schuelerId, teile: e.teile };
+  });
+  return { ok: true, ergebnisse: eigene };
 }
 
 function zuruecksetzen(archivieren) {

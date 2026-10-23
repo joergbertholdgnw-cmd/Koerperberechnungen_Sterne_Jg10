@@ -88,10 +88,40 @@
       const k = document.getElementById("kuerzel").value.trim().replace(/\.$/, "").toUpperCase();
       if (!v || !k) return;
       const name = `${v.charAt(0).toUpperCase() + v.slice(1)} ${k}.`;
-      if (!stand || stand.name !== name) stand = neuerStand(name);
+      if (stand && stand.name === name) { zeigeUebersicht(); return; }
+      stand = neuerStand(name);
       speichern();
-      zeigeUebersicht();
+      e.target.querySelector("button[type=submit]").disabled = true;
+      e.target.querySelector("button[type=submit]").textContent = "Dein Stand wird geladen …";
+      standLaden().then(zeigeUebersicht);
     });
+  }
+
+  // Bisherige Ergebnisse dieses Namens holen, damit man auf jedem Gerät weiterarbeiten kann
+  async function standLaden() {
+    let liste;
+    try { liste = (await Speicher.fortschritt(stand.name)).ergebnisse || []; }
+    catch { toast("Dein bisheriger Stand konnte gerade nicht geladen werden. Du kannst trotzdem rechnen.", 4000); return; }
+    if (!liste.length) return;
+    const neueste = {};
+    for (const e of liste) {
+      const a = AUFGABEN.find((x) => x.id === Number(e.aufgabe));
+      if (!a) continue;
+      for (const t of e.teile || []) {
+        const satz = a.teile.find((x) => x.id === t.id)?.satz;
+        if (!t.richtig && satz && WIEDERHOLUNG[satz].istSatz) stand.satzFehler[satz] = (stand.satzFehler[satz] || 0) + 1;
+      }
+      if (!neueste[a.id] || (Number(e.durchgang) || 1) >= neueste[a.id].durchgang) neueste[a.id] = { durchgang: Number(e.durchgang) || 1, teile: e.teile || [] };
+      if (e.schuelerId) stand.id = String(e.schuelerId);
+    }
+    for (const [aid, n] of Object.entries(neueste)) {
+      const teile = {};
+      for (const t of n.teile) teile[t.id] = { versuche: t.versuche, richtig: !!t.richtig, fertig: true, hilfen: t.hilfen || 0, eingaben: t.eingaben || [] };
+      stand.aufgaben[aid] = { teile, abgeschlossen: true, durchgang: n.durchgang, gesendet: true };
+    }
+    meilensteinePruefen(true);
+    speichern();
+    toast(`Willkommen zurück! ${Object.keys(neueste).length} Aufgabe(n) sind schon erledigt.`, 3500);
   }
 
   function zeigeUebersicht() {
@@ -309,7 +339,7 @@
     else if (el) el.textContent = "Keine Verbindung. Das Ergebnis ist gemerkt und wird automatisch nachgeschickt.";
   }
 
-  function meilensteinePruefen() {
+  function meilensteinePruefen(still) {
     const fertig = erledigt();
     const ziele = [
       ["erste", fertig.length >= 1, "Erste Aufgabe geschafft! 🎉"],
@@ -319,7 +349,7 @@
       ["alle", fertig.length === 18, "Alle 18 Aufgaben geschafft! Großartig! 🏆"]
     ];
     for (const [id, erreicht, text] of ziele) {
-      if (erreicht && !stand.meilensteine.includes(id)) { stand.meilensteine.push(id); speichern(); toast(text, 4000); }
+      if (erreicht && !stand.meilensteine.includes(id)) { stand.meilensteine.push(id); speichern(); if (!still) toast(text, 4000); }
     }
   }
 
