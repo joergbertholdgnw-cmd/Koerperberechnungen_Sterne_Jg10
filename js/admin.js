@@ -35,7 +35,7 @@
       daten = a.ergebnisse || [];
       zeigeUebersicht();
     } catch (e) {
-      zeigeAnmeldung("Keine Verbindung zum Google-Skript. Ist die Adresse in js/config.js richtig?");
+      zeigeAnmeldung("Keine Verbindung zum Google-Skript (" + e.message + "). Häufigste Ursache: Bei der Bereitstellung ist nicht „Zugriff: Jeder“ eingestellt.");
     }
   }
 

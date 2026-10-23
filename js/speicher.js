@@ -11,7 +11,9 @@
     // text/plain vermeidet die CORS-Vorabanfrage, die Google Apps Script nicht beantwortet
     const antwort = await fetch(url(), { method: "POST", body: JSON.stringify(daten), headers: { "Content-Type": "text/plain;charset=utf-8" } });
     if (!antwort.ok) throw new Error("HTTP " + antwort.status);
-    return antwort.json();
+    const text = await antwort.text();
+    try { return JSON.parse(text); }
+    catch { throw new Error("Das Skript antwortet mit einer Webseite statt mit Daten. Meist verlangt es eine Google-Anmeldung: Bei der Bereitstellung muss „Zugriff: Jeder“ eingestellt sein."); }
   }
 
   async function senden(ergebnis) {
