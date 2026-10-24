@@ -56,3 +56,7 @@ node tools/durchsicht.js        # Aufgaben mit Lösungen als Markdown für die D
 ```
 
 Weitere Einstellungen (Kontrollwert nach zwei Fehlversuchen, Schwelle für Wiederholungskarten) stehen in `js/config.js`.
+
+## Zweite App: Kreis und Körper im Alltag
+
+Im Ordner [`kreis-koerper/`](kreis-koerper/) liegt eine zweite, getrennte Lernapp zum Aufgabenblatt „Kreis und Körper im Alltag“ mit eigener Tabelle und eigenem Passwort. Einrichtung siehe [`kreis-koerper/README.md`](kreis-koerper/README.md).
